@@ -1,51 +1,42 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# ------------------------------------------------------------------------------
-# glumpy - Fast OpenGL numpy visualization
-# Copyright (c) 2009 - Nicolas P. Rougier
-#
-# This file is part of glumpy.
-#
-# glumpy is free  software: you can redistribute it and/or  modify it under the
-# terms of  the GNU General  Public License as  published by the  Free Software
-# Foundation, either  version 3 of the  License, or (at your  option) any later
-# version.
-#
-# glumpy is  distributed in the  hope that it  will be useful, but  WITHOUT ANY
-# WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
-# A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
-#
-# You should have received a copy  of the GNU General Public License along with
-# glumpy. If not, see <http://www.gnu.org/licenses/>.
-#
 # -----------------------------------------------------------------------------
-from shader import Shader, read_shader
+# Copyright (C) 2009-2010  Nicolas P. Rougier
+#
+# Distributed under the terms of the BSD License. The full license is in
+# the file COPYING, distributed as part of this software.
+# -----------------------------------------------------------------------------
 import pyglet.gl as gl
 
+from shader import Shader, read_shader
+
+
 class Bilinear(Shader):
-    def __init__(self, use_lut=False, displace=False):
-        if displace:
-            vert = read_shader('vertex_displacement_bilinear.txt')
-        else:
-            vert = read_shader('vertex_standard.txt')
-        interpolation = read_shader('fragment_bilinear.txt')
-        lut = read_shader('fragment_lut.txt')
+    def __init__(self, use_lut=False, lighted=False, gridsize=(0.0,0.0,0.0), elevation=0.0):
+        self._lighted = lighted
+        self._gridsize = gridsize
+        self._gridwidth = (1.0,1.0,1.0)
+        self._elevation = elevation
+        interpolation = read_shader('bilinear.txt')
+        light         = read_shader('phong.txt')
+        lut           = read_shader('lut.txt')
+        vertex        = read_shader('vertex.txt')
+        fragment      = read_shader('fragment.txt')
+        lut_code = light_code = grid_code = height_code = ''
         if use_lut:
-            line = 'color = texture1D_lut(lut, color.a);'
-        else:
-            line = ''
+            lut_code = 'color = texture1D_lut(lut, color.a);'
+        if lighted:
+            light_code = read_shader('light.txt')
+        if self._gridsize[0] or self._gridsize[1] or self._gridsize[2]:
+            grid_code = read_shader('grid.txt')
+        if self._elevation:
+            height_code = read_shader('height.txt')
+        fragment  = fragment % (lut_code,grid_code,light_code)
+        vertex    = vertex % (height_code)
         Shader.__init__(self,
-          vert = [interpolation] + [vert],
-          frag = [interpolation] + [lut] + ['''
-             uniform sampler2D texture;
-             uniform sampler1D lut;
-             uniform vec2 pixel;
-             void main() {
-                 vec2 uv = gl_TexCoord[0].xy;
-                 vec4 color = texture2D_bilinear(texture, uv, pixel);
-                 %s
-                 gl_FragColor = color*gl_Color;
-             }''' % line] )
+          vert = [interpolation] + [vertex],
+          frag = [interpolation] + [light] + [lut] + [fragment])
+
 
     def bind(self, texture, lut=None):
         ''' Bind the program, i.e. use it. '''
@@ -58,4 +49,8 @@ class Bilinear(Shader):
         gl.glActiveTexture(gl.GL_TEXTURE0)
         gl.glBindTexture(texture.target, texture.id)
         self.uniformi('texture', 0)
+        self.uniformf('elevation', self._elevation)
         self.uniformf('pixel', 1.0/texture.width, 1.0/texture.height)
+        self.uniformf('gridsize', *self._gridsize)
+        self.uniformf('gridwidth', *self._gridwidth)
+        self.uniformi('lighted', self._lighted)

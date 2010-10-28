@@ -1,5 +1,7 @@
 """ Class for 2D slice GL wrapper """
 
+# Adapted in part from image.py in glumpy.  See COPYING.txt
+
 import numpy as np
 
 from .textures import Texture1D, Texture2D
@@ -13,16 +15,24 @@ class Glice(object):
         if shader is None:
             shader = gshaders.Nearest(True, False)
         self.shader = shader
-        if cmap is None:
-            cmap = np.tile(
-                np.linspace(0, 1, 512)[:,None], (1,3)).astype(np.float32)
         self.cmap = cmap
-        self._lut = Texture1D(cmap)
         if vmin is None:
             vmin = arr.min()
         if vmax is None:
             vmax = arr.max()
         self.vmin, self.vmax = vmin, vmax
+
+    def _get_cmap(self):
+        return self._cmap
+
+    def _set_cmap(self, cmap):
+        if cmap is None:
+            cmap = np.tile(
+                np.linspace(0, 1, 512)[:,None], (1,3)).astype(np.float32)
+        self._cmap = cmap
+        self._lut = Texture1D(cmap)
+
+    cmap = property(_get_cmap, _set_cmap, None, 'get / set cmap')
 
     def set_data(self, arr):
         self._texture.set_data(arr)
@@ -41,4 +51,3 @@ class Glice(object):
         self.shader.bind(self._texture, self._lut)
         self._texture.blit(x,y,w,h)
         self.shader.unbind()
-

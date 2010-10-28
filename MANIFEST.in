@@ -1,0 +1,7 @@
+include AUTHOR COPYING.txt Makefile* MANIFEST.in setup* README.*
+include Changelog TODO
+recursive-include doc *
+recursive-include bin *
+# put this stuff back into setup.py (package_data) once I'm enlightened
+# enough to accomplish this herculean task
+recursive-include miniglumpy/gshaders *.txt

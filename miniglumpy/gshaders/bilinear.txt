@@ -1,0 +1,29 @@
+/* -*- coding: utf-8 -*- */
+/* -----------------------------------------------------------------------------
+ * Copyright (C) 2009-2010  Nicolas P. Rougier
+ *
+ * Distributed under the terms of the BSD License. The full license is in
+ * the file COPYING, distributed as part of this software.
+ * -----------------------------------------------------------------------------
+ */
+/*
+ * Bilinear interpolation fragment shader
+ * --------------------------------------
+ *
+ * From gameRENDERING
+ * Unknown author
+ * http://www.gamerendering.com/2008/10/05/bilinear-interpolation/
+ *
+ */
+vec4
+interpolated_texture2D (sampler2D texture, vec2 uv, vec2 pixel)
+{
+    vec2 texel = uv/pixel;
+    vec2 f = fract(uv/pixel);
+    texel = (texel-fract(texel)+vec2(0.0001,0.0001))*pixel;
+    vec4 tl = texture2D(texture, texel);
+    vec4 tr = texture2D(texture, texel+vec2(1,0)*pixel);
+    vec4 bl = texture2D(texture, texel+vec2(0,1)*pixel);
+    vec4 br = texture2D(texture, texel+vec2(1,1)*pixel);
+    return mix(mix(tl,tr,f.x),mix(bl,br,f.x),f.y);
+}

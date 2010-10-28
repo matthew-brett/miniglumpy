@@ -1,23 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# ------------------------------------------------------------------------------
-# glumpy - Fast OpenGL numpy visualization
-# Copyright (c) 2009 - Nicolas P. Rougier
+# -----------------------------------------------------------------------------
+# Copyright (C) 2009-2010  Nicolas P. Rougier
 #
-# This file is part of glumpy.
-#
-# glumpy is free  software: you can redistribute it and/or  modify it under the
-# terms of  the GNU General  Public License as  published by the  Free Software
-# Foundation, either  version 3 of the  License, or (at your  option) any later
-# version.
-#
-# glumpy is  distributed in the  hope that it  will be useful, but  WITHOUT ANY
-# WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
-# A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
-#
-# You should have received a copy  of the GNU General Public License along with
-# glumpy. If not, see <http://www.gnu.org/licenses/>.
-#
+# Distributed under the terms of the BSD License. The full license is in
+# the file COPYING, distributed as part of this software.
 # -----------------------------------------------------------------------------
 #
 # Copyright Tristam Macdonald 2008.
@@ -44,14 +31,14 @@
     texture.blit(x,y,w,h)
     shader.unbind()
 '''
-import os, sys
+import os
 import pyglet.gl as gl
 import ctypes
 
 class Shader:
     ''' Base shader class. '''
 
-    def __init__(self, vert = [], frag = [], geom = [], name=''):
+    def __init__(self, vert = None, frag = None, name=''):
         ''' vert, frag and geom take arrays of source strings
             the arrays will be concatenated into one string by OpenGL.'''
 
@@ -65,19 +52,21 @@ class Shader:
         self._build_shader(vert, gl.GL_VERTEX_SHADER)
         # create the fragment shader
         self._build_shader(frag, gl.GL_FRAGMENT_SHADER)
-        # the geometry shader will be the same, once pyglet supports the extension
-        # self.createShader(frag, GL_GEOMETRY_SHADER_EXT)
-        # attempt to link the program
+        # the geometry shader will be the same, once pyglet supports the
+        # extension self.createShader(frag, GL_GEOMETRY_SHADER_EXT) attempt to
+        # link the program
         self._link()
 
-    def _build_shader(self, strings, type):
+    def _build_shader(self, strings, stype):
+        ''' Actual building of the shader '''
+
         count = len(strings)
         # if we have no source code, ignore this shader
         if count < 1:
             return
 
         # create the shader handle
-        shader = gl.glCreateShader(type)
+        shader = gl.glCreateShader(stype)
 
         # convert the source strings into a ctypes pointer-to-char array, and upload them
         # this is deep, dark, dangerous black magick - don't try stuff like this at home!
@@ -105,7 +94,7 @@ class Shader:
             print buffer.value
         else:
             # all is well, so attach the shader to the program
-            gl.glAttachShader(self.handle, shader);
+            gl.glAttachShader(self.handle, shader)
 
     def _link(self):
         ''' Link the program '''
@@ -118,7 +107,8 @@ class Shader:
         # if linking failed, print the log
         if not temp:
             # retrieve the log length
-            gl.glGetProgramiv(self.handle, gl.GL_INFO_LOG_LENGTH, ctypes.byref(temp))
+            gl.glGetProgramiv(self.handle,
+                              gl.GL_INFO_LOG_LENGTH, ctypes.byref(temp))
             # create a buffer for the log
             buffer = ctypes.create_string_buffer(temp.value)
             # retrieve the log text
@@ -134,8 +124,8 @@ class Shader:
         gl.glUseProgram(self.handle)
 
     def unbind(self):
-        ''' Unbind whatever program is currently bound - not necessarily this program,
-            so this should probably be a class method instead. '''
+        ''' Unbind whatever program is currently bound - not necessarily this
+            program, so this should probably be a class method instead. '''
         gl.glUseProgram(0)
 
     def uniformf(self, name, *vals):
@@ -172,6 +162,7 @@ class Shader:
               # Retrieves uniform location, and set it
             }[len(vals)](loc, *vals)
 
+
     def uniform_matrixf(self, name, mat):
         ''' Upload uniform matrix, program must be currently bound. '''
 
@@ -180,7 +171,7 @@ class Shader:
         self.uniforms[name] = loc
 
         # Upload the 4x4 floating point matrix
-        gl.glUniformMatrix4fv(loc, 1, False, (c_float * 16)(*mat))
+        gl.glUniformMatrix4fv(loc, 1, False, (ctypes.c_float * 16)(*mat))
 
 
 
@@ -188,8 +179,8 @@ def read_shader(filename):
     ''' Read a file from within the shader directory and return content '''
     
     dirname = os.path.dirname(__file__)
-    path = os.path.join(dirname,filename)
-    file = open(path)
-    buffer = file.read()
-    file.close()
-    return buffer
+    path = os.path.join(dirname, filename)
+    fid = open(path)
+    buf = fid.read()
+    fid.close()
+    return buf

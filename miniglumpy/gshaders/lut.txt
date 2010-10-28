@@ -1,0 +1,17 @@
+/* -*- coding: utf-8 -*- */
+/* -----------------------------------------------------------------------------
+ * Copyright (C) 2009-2010  Nicolas P. Rougier
+ *
+ * Distributed under the terms of the BSD License. The full license is in
+ * the file COPYING, distributed as part of this software.
+ * -----------------------------------------------------------------------------
+ */
+/*
+ * Lookup table fragment shader
+ * ----------------------------
+ */
+vec4
+texture1D_lut (sampler1D LUT, float a)
+{
+    return texture1D(LUT, a);
+}

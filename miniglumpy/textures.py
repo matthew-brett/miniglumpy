@@ -3,6 +3,17 @@
     A texture is an image loaded into video memory that can be efficiently
     drawn to the framebuffer.
 '''
+# Modified from texture.py in glumpy
+#-----------------------------------------------------------------------------
+# Glumpy copyright (C) 2009-2010  Nicolas P. Rougier
+#
+# Distributed under the terms of the BSD License. The full license is in
+# the file COPYING, distributed as part of this software.
+#-----------------------------------------------------------------------------
+#
+# Modifications by Matthew Brett also under terms of BSD license - see
+# COPYING.txt
+
 import numpy as np
 
 import pyglet.gl as gl

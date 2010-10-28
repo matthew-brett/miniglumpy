@@ -13,7 +13,7 @@ except ImportError:
 classifiers=[
     'Operating System :: OS Independent',
     'Intended Audience :: Developers',
-    'License :: OSI Approved :: GNU General Public License (GPL)',
+    "License :: OSI Approved :: BSD License",
     'Natural Language :: English',
     'Programming Language :: Python',
     'Topic :: Software Development']
@@ -30,6 +30,6 @@ setup(name='miniglumpy',
       package_data = {'miniglumpy':
                       [pjoin('gshaders', '*.txt'),
                       ]},
-      license='GNU GPL',
+      license='BSD',
       classifiers=classifiers,
       **extra_kwargs)
