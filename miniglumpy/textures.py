@@ -9,8 +9,6 @@ import numpy as np
 
 import pyglet.gl as gl
 
-import gshaders
-
 
 class Texture1D(object):
     target = gl.GL_TEXTURE_1D
