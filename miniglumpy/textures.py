@@ -9,11 +9,61 @@ import numpy as np
 
 import pyglet.gl as gl
 
+class TextureError(Exception):
+    pass
+
+
+def make_texture(arr):
+    arr = np.asarray(arr)
+    shape = arr.shape
+    ndim = len(shape)
+    if ndim == 1 or ndim == 2 and shape[-1] <=4:
+        return Texture1D(arr)
+    return Texture2D(arr)
+
+
+_DIM_TO_FMTS = {
+    1: (gl.GL_ALPHA, gl.GL_ALPHA16),
+    2: (gl.GL_LUMINANCE_ALPHA, gl.GL_LUMINANCE16_ALPHA16),
+    3: (gl.GL_RGB, gl.GL_RGB16),
+    4: (gl.GL_RGBA, gl.GL_RGBA16)
+}
+
+
+def fmts_from_shape(shape, texture_dim):
+    """ Return source and destination GL formats from array shape
+
+    Parameters
+    ----------
+    shape : tuple
+    texture_dim : int
+       shape index that should contain texture.  For 1D textures this will == 2,
+       for 2D arrays `texture_dim` == 3
+
+    Returns
+    -------
+    src_format : int
+        GL code for source array format
+    dst_format : int
+        GL code for destination array format
+    """
+    ndim = len(shape)
+    if ndim == texture_dim:
+        t_len = shape[-1]
+        if t_len > 4:
+            raise TextureError(
+                '%s dimension of texture array must be <=4' % t_len)
+    elif ndim == texture_dim - 1:
+        t_len = 1
+    else:
+        raise TextureError('Texture must have %s or %s dimensions'
+                          % (texture_dim, texture_dim-1))
+    return _DIM_TO_FMTS[t_len]
+
 
 class Texture1D(object):
     target = gl.GL_TEXTURE_1D
-    src_format = gl.GL_RGB
-    dst_format = gl.GL_RGB16
+    _texture_dim = 2
 
     def __init__(self, arr):
         self._id = 0
@@ -33,22 +83,28 @@ class Texture1D(object):
 
     @property
     def id(self):
-        ''' GL texture name.
+        ''' GL texture identifier
 
-        :type: int, read-only
+        Returns
+        -------
+        res : int
         '''
         return self._id.value
 
     def set_data(self, arr):
         arr = np.asarray(arr)
-        src_type = gl.GL_FLOAT
-        if arr.dtype in (np.dtype(np.float32), np.dtype(np.uint8)):
+        self.src_format, self.dst_format = fmts_from_shape(arr.shape,
+                                                           self._texture_dim)
+        # Float is default type
+        if arr.dtype == np.uint8:
             arr = np.ascontiguousarray(arr)
-            if arr.dtype == np.dtype(np.uint8):
-                src_type = gl.GL_UNSIGNED_BYTE
+            self.src_type = gl.GL_UNSIGNED_BYTE
+        elif arr.dtype == np.float32:
+            arr = np.ascontiguousarray(arr)
+            self.src_type = gl.GL_FLOAT
         else:
-            arr = arr.astype(np.float32)
-        self.src_type = src_type
+            arr = np.astype(np.float32)
+            self.src_type = gl.GL_FLOAT
         self._arr = arr
         if self._id:
             gl.glDeleteTextures(1, gl.byref(self._id))
@@ -67,6 +123,21 @@ class Texture1D(object):
         self._setup_tex()
         self.update()
 
+    def update(self, bias=0.0, scale=1.0):
+        ''' Update texture with bias and scale '''
+        gl.glBindTexture(self.target, self._id)
+        # Autoscale array using OpenGL pixel transfer parameters
+        if self.src_type == gl.GL_FLOAT:
+            gl.glPixelTransferf(gl.GL_ALPHA_SCALE, scale)
+            gl.glPixelTransferf(gl.GL_ALPHA_BIAS, bias)
+        self._subimage()
+        if self.src_type == gl.GL_FLOAT:
+            # Reset to default parameters
+            gl.glPixelTransferf(gl.GL_ALPHA_SCALE, 1)
+            gl.glPixelTransferf(gl.GL_ALPHA_BIAS, 0)
+
+    # The following are class-specific implementations
+
     def _setup_tex(self):
         self._width, self._height = self._arr.shape[0], 0
         gl.glTexImage1D (self.target, 0,
@@ -74,16 +145,14 @@ class Texture1D(object):
                          self._width, 0,
                          self.src_format, self.src_type, 0)
 
-    def update(self, bias=0.0, scale=1.0):
-        ''' Update texture. '''
-        gl.glBindTexture(self.target, self.id)
+    def _subimage(self):
         gl.glTexSubImage1D (self.target, 0, 0,
                             self._width,
                             self.src_format,
                             self.src_type,
                             self._arr.ctypes.data)
 
-    def blit(self, x, y, w, h, z=0, s=(0,1), t=(0,1)):
+    def blit(self, x, y, w, h, z=0, s=(0,1), **kwargs):
         ''' Draw texture to active framebuffer. '''
         gl.glDisable (gl.GL_TEXTURE_2D)
         gl.glEnable (gl.GL_TEXTURE_1D)
@@ -98,8 +167,7 @@ class Texture1D(object):
 
 class Texture2D(Texture1D):
     target = gl.GL_TEXTURE_2D
-    src_format = gl.GL_ALPHA
-    dst_format = gl.GL_ALPHA16
+    _texture_dim = 3
 
     def _setup_tex(self):
         self._height, self._width = self._arr.shape
@@ -108,22 +176,15 @@ class Texture2D(Texture1D):
                          self.src_format, self.src_type, 0)
         self.update()
 
-    def update(self, bias=0.0, scale=1.0):
-        ''' Update texture. '''
-        gl.glBindTexture(self.target, self._id)
-        gl.glPixelTransferf(gl.GL_ALPHA_SCALE, scale)
-        gl.glPixelTransferf(gl.GL_ALPHA_BIAS, bias)
+    def _subimage(self):
         gl.glTexSubImage2D (self.target, 0, 0, 0,
                             self._arr.shape[1],
                             self._arr.shape[0],
                             self.src_format,
                             self.src_type,
                             self._arr.ctypes.data)
-        # Default parameters
-        gl.glPixelTransferf(gl.GL_ALPHA_SCALE, 1)
-        gl.glPixelTransferf(gl.GL_ALPHA_BIAS, 0)
 
-    def blit(self, x, y, w, h, z=0, s=(0,1), t=(0,1)):
+    def blit(self, x, y, w, h, z=0, s=(0,1), **kwargs):
         ''' Draw texture to active framebuffer. '''
         gl.glEnable (gl.GL_TEXTURE_2D)
         gl.glDisable (gl.GL_TEXTURE_1D)
