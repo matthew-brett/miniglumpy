@@ -13,16 +13,101 @@ class TextureError(Exception):
     pass
 
 
-def make_texture(arr):
+_FMT_TO_DIM = {
+    'A': 1,
+    'LA': 2,
+    'RGB': 3,
+    'RGBA': 4}
+
+
+def make_texture(arr, format=None):
+    """ Create texture from array `arr` given optional format string
+
+    Parameters
+    ----------
+    arr : array-like
+    format : {None, 'A', 'LA', 'RGB', 'RGBA'}, optional
+        color format of array.  None results in a guess for the format, so that,
+        if the final dimension of the shape fits a format, we assume it is that
+        format.  For example, if `shape` == (10,4), then we assume this is a 1D
+        texture of type 'RGBA' length 10, rather than a 2D texture of type 'A'
+        and size (10,4).
+
+    Returns
+    -------
+    texture : Texture1D or Texture2D
+
+    Raises
+    ------
+    TextureError
+        If the shape of the array does not match the given format, or cannot
+        fit into a 1 or 2D texture.
+    """
     arr = np.asarray(arr)
-    shape = arr.shape
+    return texmaker_from_shape_fmt(arr.shape, format)(arr)
+
+
+def texmaker_from_shape_fmt(shape, format):
+    """ Return texture maker callable given array shape and format
+
+    Parameters
+    ----------
+    shape : sequence
+        array shape
+    format : {None, 'A', 'LA', 'RGB', 'RGBA'}, optional
+        color format of array.  None results in a guess for the format, so that,
+        if the final dimension of the shape fits a format, we assume it is that
+        format.  For example, if `shape` == (10,4), then we assume this is a 1D
+        texture of type 'RGBA' length 10, rather than a 2D texture of type 'A'
+        and size (10,4).
+
+    Returns
+    -------
+    tex_maker : callable
+        In fact either ``Texture1D`` class or ``Texture2D`` class
+
+    Raises
+    ------
+    TextureError
+        If the shape of the array does not match the given format, or cannot
+        fit into a 1 or 2D texture.
+
+    Examples
+    --------
+    >>> texmaker_from_shape_fmt((10,), None) is Texture1D
+    True
+    >>> texmaker_from_shape_fmt((10,4), None) is Texture1D
+    True
+    >>> texmaker_from_shape_fmt((10,4), 'A') is Texture2D
+    True
+    """
     ndim = len(shape)
-    if ndim == 1 or ndim == 2 and shape[-1] <=4:
-        return Texture1D(arr)
-    return Texture2D(arr)
+    if ndim > 3:
+        raise TextureError('Too many dimensions for input array')
+    if format is None:
+        # Assume 1D for 2D array if last dimension is compatible with colors
+        if ndim == 1 or ndim == 2 and shape[-1] <=4:
+            return Texture1D
+        return Texture2D
+    # Given format; check last dimension length
+    if format == 'A':
+        if ndim == 1 or ndim == 2 and shape[-1] == 1:
+            return Texture1D
+        if ndim == 2 or shape[-1] == 1:
+            return Texture2D
+        raise TextureError('A format array needs to have last dimension 1 '
+                           'or less than 3 dimensions')
+    # Last dimension length has to match expected
+    exp_dim = _FMT_TO_DIM[format]
+    if shape[-1] != exp_dim:
+        raise TextureError('Texture format %s needs last dimension length %d'
+                            % (format, exp_dim))
+    if ndim == 2:
+        return Texture1D
+    return Texture2D
 
 
-_DIM_TO_FMTS = {
+_DIM_TO_GL_FMTS = {
     1: (gl.GL_ALPHA, gl.GL_ALPHA16),
     2: (gl.GL_LUMINANCE_ALPHA, gl.GL_LUMINANCE16_ALPHA16),
     3: (gl.GL_RGB, gl.GL_RGB16),
@@ -58,7 +143,7 @@ def fmts_from_shape(shape, texture_dim):
     else:
         raise TextureError('Texture must have %s or %s dimensions'
                           % (texture_dim, texture_dim-1))
-    return _DIM_TO_FMTS[t_len]
+    return _DIM_TO_GL_FMTS[t_len]
 
 
 class Texture1D(object):
